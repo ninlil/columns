@@ -6,48 +6,17 @@ import (
 	"strings"
 )
 
-func (cw *ColumnsWriter) dump() {
-	var a, b, c string
-	for i, col := range cw.columns {
-		a += fmt.Sprint(cw.spacers[i], strings.Repeat("O", col.outerSize()))
-		b += fmt.Sprint(cw.spacers[i], strings.Repeat("+", col.sizePrefix), strings.Repeat("I", col.innerSize()), strings.Repeat("-", col.sizeSuffix))
+// Flush writes the completed columns to the output
+func (cw *ColumnsWriter) Flush() {
 
-		// //fmt.Printf("> Column %d: size:%d sizeI:%d sizeF:%d\n", i, c.size, c.sizeI, c.sizeF)
-		if col.sizeI > 0 {
-			var fillSize int
-			var fillAfter string
-			if col.sizeF > 0 {
-				fillSize--
+	if len(cw.aggOrder) > 0 {
+		for _, col := range cw.columns {
+			for _, agg := range col.aggregations {
+				col.ensureSize(cw, Cell(agg.Result()), col.style)
 			}
-			fillSize += col.sizeValue - col.sizeI - col.sizeF
-			fillBefore := strings.Repeat(space, fillSize)
-			if col.align == AlignLeft {
-				fillAfter = fillBefore
-				fillBefore = ""
-			}
-			c += fmt.Sprint(cw.spacers[i],
-				strings.Repeat("+", col.sizePrefix),
-				fillBefore,
-				strings.Repeat("N", col.sizeI),
-				strings.Repeat(".", col.sizeDot),
-				strings.Repeat("D", col.sizeF),
-				fillAfter,
-				strings.Repeat("-", col.sizeSuffix))
-		} else {
-			c += fmt.Sprint(cw.spacers[i],
-				strings.Repeat("+", col.sizePrefix),
-				strings.Repeat("T", col.sizeValue),
-				strings.Repeat("-", col.sizeSuffix))
 		}
 	}
-	a += cw.spacers[len(cw.columns)]
-	b += cw.spacers[len(cw.columns)]
-	c += cw.spacers[len(cw.columns)]
 
-	fmt.Print(a, b, c)
-}
-
-func (cw *ColumnsWriter) Flush() {
 	for _, c := range cw.columns {
 		if c.sizeI > 0 || c.sizeF > 0 {
 			size := c.sizeI + c.sizeDot + c.sizeF
@@ -57,18 +26,20 @@ func (cw *ColumnsWriter) Flush() {
 		}
 	}
 
-	//cw.dump()
+	cw.dump()
+
+	var sep []string
 
 	cw.bufwr = bufio.NewWriter(cw.writer)
 	if len(cw.headers) > 0 {
-		cw.writeStrings(cw.headers)
+		cw.writeStrings(cw.headers, "\n")
 
 		if cw.HeaderSeparator {
-			sep := make([]string, cw.n)
+			sep = make([]string, cw.n)
 			for i, col := range cw.columns {
 				sep[i] = strings.Repeat("-", col.outerSize())
 			}
-			cw.writeStrings(sep)
+			cw.writeStrings(sep, "\n")
 		}
 	}
 	if cw.head < 0 {
@@ -79,7 +50,7 @@ func (cw *ColumnsWriter) Flush() {
 	cutmsg := false
 	for i, row := range cw.data {
 		if i < cw.head || i >= cw.tail {
-			cw.writeCells(row)
+			cw.writeCells(row, "\n")
 		} else {
 			if !cutmsg {
 				_, _ = cw.bufwr.WriteString(fmt.Sprintf("--- cut %d lines ---\n", cw.tail-cw.head))
@@ -88,10 +59,25 @@ func (cw *ColumnsWriter) Flush() {
 		}
 	}
 
+	if len(cw.aggOrder) > 0 {
+		if len(sep) > 0 {
+			cw.writeStrings(sep, "\n")
+		}
+		for _, aggName := range cw.aggOrder {
+			aggline := make([]*CellData, cw.n)
+			for i, col := range cw.columns {
+				if agg, ok := col.aggregations[aggName]; ok {
+					aggline[i] = Cell(agg.Result())
+				}
+			}
+			cw.writeCells(aggline, " ", aggName, "\n")
+		}
+	}
+
 	_ = cw.bufwr.Flush()
 }
 
-func (cw *ColumnsWriter) writeCells(data []*CellData) {
+func (cw *ColumnsWriter) writeCells(data []*CellData, suffix ...string) {
 	for i := 0; i < cw.n; i++ {
 		col := cw.columns[i]
 
@@ -103,9 +89,10 @@ func (cw *ColumnsWriter) writeCells(data []*CellData) {
 		}
 	}
 	_, _ = cw.bufwr.WriteString(cw.spacers[cw.n])
+	_, _ = cw.bufwr.WriteString(strings.Join(suffix, ""))
 }
 
-func (cw *ColumnsWriter) writeStrings(data []string) {
+func (cw *ColumnsWriter) writeStrings(data []string, suffix ...string) {
 
 	for i := 0; i < cw.n; i++ {
 		col := cw.columns[i]
@@ -118,6 +105,7 @@ func (cw *ColumnsWriter) writeStrings(data []string) {
 		}
 	}
 	_, _ = cw.bufwr.WriteString(cw.spacers[cw.n])
+	_, _ = cw.bufwr.WriteString(strings.Join(suffix, ""))
 }
 
 func pad(txt string, size int, align alignment, ch rune) string {

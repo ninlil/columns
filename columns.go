@@ -23,17 +23,21 @@ type ColumnsWriter struct {
 	tail int
 
 	useColor bool
+
+	aggOrder []string
 }
 
 type column struct {
-	sizeHeader int // Size of the header
-	sizeValue  int // Max size of all values
-	sizeI      int // Max size of Integer-part (not including decimal separator)
-	sizeDot    int // 0 or 1 depending on if sizeF > 0
-	sizeF      int // Max size of Decimal-part (not including decimal separator)
-	sizePrefix int // Mas size of all prefixes
-	sizeSuffix int // Mas size of all suffixes
-	align      alignment
+	sizeHeader   int // Size of the header
+	sizeValue    int // Max size of all values
+	sizeI        int // Max size of Integer-part (not including decimal separator)
+	sizeDot      int // 0 or 1 depending on if sizeF > 0
+	sizeF        int // Max size of Decimal-part (not including decimal separator)
+	sizePrefix   int // Max size of all prefixes
+	sizeSuffix   int // Max size of all suffixes
+	align        alignment
+	style        *Style
+	aggregations map[string]Aggregation
 }
 
 func (col *column) outerSize() int {
@@ -90,7 +94,7 @@ func New(writer io.Writer, format string) *ColumnsWriter {
 			spacer = append(spacer, ch)
 		}
 	}
-	cw.spacers = append(cw.spacers, string(spacer)+"\n")
+	cw.spacers = append(cw.spacers, string(spacer))
 	cw.n = len(cw.columns)
 
 	return &cw
@@ -131,6 +135,36 @@ func (cw *ColumnsWriter) Headers(titles ...string) {
 	}
 }
 
+func (cw *ColumnsWriter) Footer(i int, aggrs ...Aggregation) {
+	i--
+	if i >= 0 && i < cw.n {
+		if cw.columns[i].aggregations == nil {
+			cw.columns[i].aggregations = make(map[string]Aggregation)
+		}
+
+		for _, agg := range aggrs {
+			name := agg.Name()
+			found := false
+			for _, n := range cw.aggOrder {
+				if n == name {
+					found = true
+				}
+			}
+			if !found {
+				cw.aggOrder = append(cw.aggOrder, name)
+			}
+			cw.columns[i].aggregations[name] = agg
+		}
+	}
+}
+
+func (cw *ColumnsWriter) Style(i int, style *Style) {
+	i--
+	if i >= 0 && i < cw.n {
+		cw.columns[i].style = style
+	}
+}
+
 // Write a line/row to the ColumnWriter
 //
 // Sortable datatypes are string, int, int64, and float64
@@ -149,33 +183,42 @@ func (cw *ColumnsWriter) Write(data ...interface{}) {
 				cell = Cell(o)
 			}
 
-			if cell.prefix != "" {
-				l := len([]rune(cell.prefix))
-				if cw.columns[i].sizePrefix < l {
-					cw.columns[i].sizePrefix = l
-				}
-			}
-			if cell.suffix != "" {
-				l := len([]rune(cell.suffix))
-				if cw.columns[i].sizeSuffix < l {
-					cw.columns[i].sizeSuffix = l
-				}
+			for _, agg := range cw.columns[i].aggregations {
+				_ = agg.AddValue(cell.value)
 			}
 
-			_, size, sizeI, sizeF := cw.format(cell)
+			cw.columns[i].ensureSize(cw, cell, cw.columns[i].style)
 			row[i] = cell
-
-			if cw.columns[i].sizeValue < size {
-				cw.columns[i].sizeValue = size
-			}
-			if cw.columns[i].sizeI < sizeI {
-				cw.columns[i].sizeI = sizeI
-			}
-			if cw.columns[i].sizeF < sizeF {
-				cw.columns[i].sizeF = sizeF
-				cw.columns[i].sizeDot = 1
-			}
 		}
 	}
 	cw.data = append(cw.data, row)
+}
+
+func (col *column) ensureSize(cw *ColumnsWriter, cell *CellData, style *Style) {
+
+	if txt := cell.prefix(style); txt != "" {
+		l := len([]rune(txt))
+		if col.sizePrefix < l {
+			col.sizePrefix = l
+		}
+	}
+	if txt := cell.suffix(style); txt != "" {
+		l := len([]rune(txt))
+		if col.sizeSuffix < l {
+			col.sizeSuffix = l
+		}
+	}
+
+	_, size, sizeI, sizeF := cw.format(cell)
+
+	if col.sizeValue < size {
+		col.sizeValue = size
+	}
+	if col.sizeI < sizeI {
+		col.sizeI = sizeI
+	}
+	if col.sizeF < sizeF {
+		col.sizeF = sizeF
+		col.sizeDot = 1
+	}
 }
