@@ -5,12 +5,14 @@ import (
 	"math"
 )
 
+// Aggregation is the interface for describing a calculated value in a footer
 type Aggregation interface {
 	AddValue(v interface{}) error
 	Name() string
 	Result() float64
 }
 
+// ErrInvalidType error for saying it's a value we can't "aggregate"
 var ErrInvalidType = fmt.Errorf("not a numerical value")
 
 func round(n float64, precision int) float64 {
@@ -32,6 +34,8 @@ func getNum(v interface{}) (float64, bool) {
 		return float64(n), true
 	case int8:
 		return float64(n), true
+	case int:
+		return float64(n), true
 	case uint64:
 		return float64(n), true
 	case uint32:
@@ -40,6 +44,13 @@ func getNum(v interface{}) (float64, bool) {
 		return float64(n), true
 	case uint8:
 		return float64(n), true
+	case uint:
+		return float64(n), true
+	case bool:
+		if n {
+			return 1, true
+		}
+		return 0, true
 	}
 	return 0, false
 }
@@ -50,6 +61,7 @@ type aggSum struct {
 	value     float64
 }
 
+// Sum creates an 'Aggregation' that 'sums' all valid values
 func Sum(prec int) Aggregation {
 	return &aggSum{
 		precision: prec,
@@ -78,6 +90,7 @@ type aggAvg struct {
 	count     int
 }
 
+// Avg creates an 'Aggregation' that 'averages' all valid values
 func Avg(prec int) Aggregation {
 	return &aggAvg{
 		precision: prec,

@@ -1,6 +1,7 @@
 package columns
 
 import (
+	"math"
 	"sort"
 	"strings"
 )
@@ -10,8 +11,9 @@ import (
 // Example: Sort(-1) will sort the 1st column descending;
 // Sort(2,3) will sort on column 2 and, if necessary, column 3
 //
-// In a column with mixed datatypes (strings & numerical), strings will be sorted after all numerical values
-func (cw *ColumnsWriter) Sort(columns ...int) {
+// In a column with mixed datatypes (strings & numerical), numerical values are grouped 1st, strings 2nd, nil are always last
+// regardless of sorting ascending or descending
+func (cw *Writer) Sort(columns ...int) {
 	var sorter = func(i, j int) bool {
 		for _, c := range columns {
 			var asc = c > 0
@@ -40,6 +42,46 @@ const (
 	compareKeep  swap = 3
 )
 
+func compareValue(a, b *CellData, asc bool) int {
+	switch x := a.value.(type) {
+	case string:
+		switch y := b.value.(type) {
+		case string:
+			return strings.Compare(x, y)
+		default:
+			if asc {
+				return 1 // swap
+			}
+			return -1
+		}
+	}
+
+	switch b.value.(type) {
+	case string:
+		if asc {
+			return -1 // swap
+		}
+		return 1
+	}
+
+	n, ok1 := getNum(a.value)
+	m, ok2 := getNum(b.value)
+	if ok1 && ok2 {
+		diff := n - m
+		if math.Abs(diff) < 1e-9 {
+			return 0
+		}
+		if diff > 0 {
+			return 1
+		}
+		return -1
+	}
+	if !ok2 {
+		return 1
+	}
+	return 0
+}
+
 func compare(a, b *CellData, asc bool) swap {
 	if a.isEmpty() && b.isEmpty() {
 		return compareKeep // both empty -> dont swap
@@ -51,110 +93,12 @@ func compare(a, b *CellData, asc bool) swap {
 		return compareKeep
 	}
 
-	switch x := a.value.(type) {
-	case string:
-		switch y := b.value.(type) {
-		case string:
-			comp := strings.Compare(x, y)
-			if comp == 0 {
-				return compareEqual
-			}
-			if (asc && comp > 0) || (!asc && comp < 0) {
-				return compareSwap
-			}
-			return compareKeep
-
-		case int, int64, float64:
-			return compareSwap // swap strings after numerical
-		}
-
-	case int64:
-		switch y := b.value.(type) {
-		case int:
-			if x == int64(y) {
-				return compareEqual
-			}
-			if (asc && x > int64(y)) || (!asc && x < int64(y)) {
-				return compareSwap
-			}
-			return compareKeep
-		case int64:
-			if x == y {
-				return compareEqual
-			}
-			if (asc && x > y) || (!asc && x < y) {
-				return compareSwap
-			}
-			return compareKeep
-		case float64:
-			if (asc && float64(x) > y) || (!asc && float64(x) < y) {
-				return compareSwap
-			}
-			return compareKeep
-		case string:
-			return compareKeep // keep numerical before string
-		}
-
-	case int:
-		switch y := b.value.(type) {
-		case int:
-			if x == y {
-				return compareEqual
-			}
-			if (asc && x > y) || (!asc && x < y) {
-				return compareSwap
-			}
-			return compareKeep
-		case int64:
-			if int64(x) == y {
-				return compareEqual
-			}
-			if (asc && int64(x) > y) || (!asc && int64(x) < y) {
-				return compareSwap
-			}
-			return compareKeep
-		case float64:
-			if (asc && float64(x) > y) || (!asc && float64(x) < y) {
-				return compareSwap
-			}
-			return compareKeep
-		case string:
-			return compareKeep // keep numerical before string
-		}
-
-	case float64:
-		switch y := b.value.(type) {
-		case float64:
-			if x == y {
-				return compareEqual
-			}
-			if (asc && x > y) || (!asc && x < y) {
-				return compareSwap
-			}
-			return compareKeep
-		case int:
-			if x == float64(y) {
-				return compareEqual
-			}
-			if (asc && x > float64(y)) || (!asc && x < float64(y)) {
-				return compareSwap
-			}
-			return compareKeep
-		case int64:
-			if x == float64(y) {
-				return compareEqual
-			}
-			if (asc && x > float64(y)) || (!asc && x < float64(y)) {
-				return compareSwap
-			}
-			return compareKeep
-		case string:
-			return compareKeep // keep numerical before string
-		}
-
-	default:
-		//fmt.Printf("compare(%v,%v): unknown type of A\n", a.value, b.value)
+	comp := compareValue(a, b, asc)
+	if comp == 0 {
+		return compareEqual
 	}
-
+	if (asc && comp > 0) || (!asc && comp < 0) {
+		return compareSwap
+	}
 	return compareKeep
 }

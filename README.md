@@ -19,7 +19,7 @@ go get github.com/ninlil/ansi
 * Auto-align numerical values on the decimal-point
 * Sorting your output before printing
 * Head and Tail to only show the start and/or end of your data
-* Colorizeable output (only to default terminal)
+* Colorizeable output (only to default terminal; i.e to os.Stdout that is a CharDevice)
 
 ## Examples
 
@@ -126,6 +126,11 @@ If any lines are excluded then a line indicating how many rows where cut will be
 ## Versioning
 
 We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/ninlil/columns/tags). 
+
+## Code usage
+
+* [Go Report Card](https://goreportcard.com/report/github.com/ninlil/columns)
+* [pkg.go.dev](https://pkg.go.dev/github.com/ninlil/columns)
 
 ## Authors
 

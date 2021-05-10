@@ -2,5 +2,5 @@
 
 package columns
 
-func (cw *ColumnsWriter) dump() {
+func (cw *Writer) dump() {
 }

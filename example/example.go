@@ -34,7 +34,7 @@ func styled() {
 	cw.Footer(1, columns.Sum(1), columns.Avg(1))
 	cw.Footer(3, columns.Sum(1), columns.Avg(1))
 	cw.Footer(4, columns.Sum(1), columns.Avg(1))
-	cw.Footer(5, columns.Sum(1), columns.Avg(1))
+	cw.Footer(5, columns.Sum(2), columns.Avg(2))
 
 	temp := columns.NewStyle().ColorFunc(tempFunc).Suffix("°C")
 	earth := columns.NewStyle().Color(ansi.Green).Suffix("°C")
@@ -45,7 +45,7 @@ func styled() {
 	cw.Write(3, "Earth", 1, 365.256363, columns.Cell(13.85).Style(earth))
 	cw.Write(4, "Mars", 0.53260, 686.971, -46)
 	cw.Write(5, "Jupiter", 11.209, 4_332.59, -121)
-	cw.Write(6, "Saturn", 9.449, 10_759.22, -139)
+	cw.Write(6, "Saturn", 9.449, 10_759.22, 139)
 	cw.Write(7, "Uranus", 4.007, 30_688.5, -197)
 	cw.Write(8, "Neptune", 3.883, 60_182, -200)
 

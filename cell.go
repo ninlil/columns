@@ -2,19 +2,20 @@ package columns
 
 import "strings"
 
+// CellData contains the cell value and it's assigned styling
 type CellData struct {
 	value interface{}
 	style *Style
 }
 
-// Create a cell that can be colored, prefixed or suffixed
+// Cell create a cell that can be colored, prefixed or suffixed
 func Cell(value interface{}) *CellData {
 	return &CellData{
 		value: value,
 	}
 }
 
-// Apply a style (from the NewStyle-function) to a specific cell
+// Style applies a style (from the NewStyle-function) to a specific cell
 func (cell *CellData) Style(style *Style) *CellData {
 	cell.style = style
 	return cell
@@ -44,7 +45,7 @@ func (cell *CellData) isEmpty() bool {
 	return cell == nil || cell.value == nil
 }
 
-func (cw *ColumnsWriter) writeCell(c *CellData, col *column) {
+func (cw *Writer) writeCell(c *CellData, col *column) {
 
 	var txt, prefix, suffix string
 	var sizeI, sizeF, lenPrefix, lenSuffix int

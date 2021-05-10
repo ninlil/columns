@@ -11,7 +11,7 @@ const (
 	space = " "
 )
 
-func (cw *ColumnsWriter) format(cell *CellData) (txt string, size int, sizeI int, sizeF int) {
+func (cw *Writer) format(cell *CellData) (txt string, size int, sizeI int, sizeF int) {
 	sizeI = 0
 	sizeF = 0
 	switch v := cell.value.(type) {
@@ -43,7 +43,7 @@ func abs(v int64) int64 {
 	return v
 }
 
-func (cw *ColumnsWriter) formatNumeric(input string, neg bool) (txt string, size int, sizeI int, sizeF int) {
+func (cw *Writer) formatNumeric(input string, neg bool) (txt string, size int, sizeI int, sizeF int) {
 	parts := strings.Split(input, ".")
 
 	var txtI, txtF string

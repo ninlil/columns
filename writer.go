@@ -7,7 +7,7 @@ import (
 )
 
 // Flush writes the completed columns to the output
-func (cw *ColumnsWriter) Flush() {
+func (cw *Writer) Flush() {
 
 	if len(cw.aggOrder) > 0 {
 		for _, col := range cw.columns {
@@ -28,20 +28,10 @@ func (cw *ColumnsWriter) Flush() {
 
 	cw.dump()
 
-	var sep []string
-
 	cw.bufwr = bufio.NewWriter(cw.writer)
-	if len(cw.headers) > 0 {
-		cw.writeStrings(cw.headers, "\n")
 
-		if cw.HeaderSeparator {
-			sep = make([]string, cw.n)
-			for i, col := range cw.columns {
-				sep[i] = strings.Repeat("-", col.outerSize())
-			}
-			cw.writeStrings(sep, "\n")
-		}
-	}
+	sep := cw.flushHeaders()
+
 	if cw.head < 0 {
 		cw.head = len(cw.data)
 	}
@@ -59,25 +49,47 @@ func (cw *ColumnsWriter) Flush() {
 		}
 	}
 
-	if len(cw.aggOrder) > 0 {
-		if len(sep) > 0 {
-			cw.writeStrings(sep, "\n")
-		}
-		for _, aggName := range cw.aggOrder {
-			aggline := make([]*CellData, cw.n)
-			for i, col := range cw.columns {
-				if agg, ok := col.aggregations[aggName]; ok {
-					aggline[i] = Cell(agg.Result())
-				}
-			}
-			cw.writeCells(aggline, " ", aggName, "\n")
-		}
-	}
+	cw.flushAggregations(sep)
 
 	_ = cw.bufwr.Flush()
 }
 
-func (cw *ColumnsWriter) writeCells(data []*CellData, suffix ...string) {
+func (cw *Writer) flushHeaders() []string {
+	var sep []string
+	if len(cw.headers) > 0 {
+		cw.writeStrings(cw.headers, "\n")
+
+		if cw.HeaderSeparator {
+			sep = make([]string, cw.n)
+			for i, col := range cw.columns {
+				sep[i] = strings.Repeat("-", col.outerSize())
+			}
+			cw.writeStrings(sep, "\n")
+		}
+	}
+	return sep
+}
+
+func (cw *Writer) flushAggregations(sep []string) {
+	if len(cw.aggOrder) <= 0 {
+		return
+	}
+
+	if len(sep) > 0 {
+		cw.writeStrings(sep, "\n")
+	}
+	for _, aggName := range cw.aggOrder {
+		aggline := make([]*CellData, cw.n)
+		for i, col := range cw.columns {
+			if agg, ok := col.aggregations[aggName]; ok {
+				aggline[i] = Cell(agg.Result())
+			}
+		}
+		cw.writeCells(aggline, " ", aggName, "\n")
+	}
+}
+
+func (cw *Writer) writeCells(data []*CellData, suffix ...string) {
 	for i := 0; i < cw.n; i++ {
 		col := cw.columns[i]
 
@@ -92,7 +104,7 @@ func (cw *ColumnsWriter) writeCells(data []*CellData, suffix ...string) {
 	_, _ = cw.bufwr.WriteString(strings.Join(suffix, ""))
 }
 
-func (cw *ColumnsWriter) writeStrings(data []string, suffix ...string) {
+func (cw *Writer) writeStrings(data []string, suffix ...string) {
 
 	for i := 0; i < cw.n; i++ {
 		col := cw.columns[i]

@@ -28,7 +28,7 @@ type Style struct {
 	suffix *string
 }
 
-// Create a new style
+// NewStyle creates a new style
 func NewStyle() *Style {
 	return &Style{}
 }
